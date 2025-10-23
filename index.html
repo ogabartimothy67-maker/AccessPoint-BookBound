@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AccessPoint:BookBound</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container" id="loginContainer">
+    <div class="left-panel">
+      <div class="library-icon">📚</div>
+      <h2 class="text-2xl font-bold mb-4">AccessPoint:BookBound</h2>
+      <p class="mb-6">From Manual to Digital — Library Access Simplified.</p>
+
+      <div class="features">
+        <div class="feature"><span class="feature-icon">✓</span> Instant ID Card Creation</div>
+        <div class="feature"><span class="feature-icon">✓</span> User-Friendly Interface</div>
+        <div class="feature"><span class="feature-icon">✓</span> Fast Member Registration</div>
+        <div class="feature"><span class="feature-icon">✓</span> Automated Data Entry</div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="form-toggle">
+        <button class="toggle-btn active" id="login-toggle">Sign In</button>
+        <button class="toggle-btn" id="signup-toggle">Sign Up</button>
+      </div>
+
+      
+      <form class="form active" id="login-form" onsubmit="login(event)">
+        <div class="form-group">
+          <label for="login-email">Email Address</label>
+          <input type="email" id="login-email"  placeholder="name@example.com" required>
+        </div>
+
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" placeholder="Enter your password" required>
+        </div>
+
+        <button type="submit" class="btn" id="login-btn">Sign In</button>
+      </form>
+
+      
+      <form class="form" id="signup-form">
+        <div class="form-group">
+          <label for="signup-name">Full Name</label>
+          <input type="text" id="signup-name" placeholder="John Doe" required>
+        </div>
+
+        <div class="form-group">
+          <label for="signup-email">Email Address</label>
+          <input type="email" id="signup-email" placeholder="name@example.com" required>
+        </div>
+
+        <div class="form-group">
+          <label for="signup-password">Password</label>
+          <input type="password" id="signup-password" placeholder="Create a strong password" required>
+        </div>
+
+        <div class="form-group">
+          <label for="signup-confirm">Confirm Password</label>
+          <input type="password" id="signup-confirm" placeholder="Confirm your password" required>
+        </div>
+
+        <button type="submit" class="btn">Create Account</button>
+      </form>
+    </div>
+  </div>
+
+
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <p>Logging in...</p>
+  </div>
+
+<script>
+
+
+const BASE_URL = "https://bookbound-backend2.onrender.com";
+
+
+document.getElementById('login-toggle').addEventListener('click', function() {
+  this.classList.add('active');
+  document.getElementById('signup-toggle').classList.remove('active');
+  document.getElementById('login-form').classList.add('active');
+  document.getElementById('signup-form').classList.remove('active');
+});
+
+document.getElementById('signup-toggle').addEventListener('click', function() {
+  this.classList.add('active');
+  document.getElementById('login-toggle').classList.remove('active');
+  document.getElementById('signup-form').classList.add('active');
+  document.getElementById('login-form').classList.remove('active');
+});
+
+// LOGIN FUNCTION
+async function login(event) {
+  event.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+
+  try {
+    const res = await fetch(`${BASE_URL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      const container = document.getElementById('loginContainer');
+      const loader = document.getElementById('loader');
+
+      container.classList.add('fade-out');
+      document.body.style.background = '#1b2a41';
+
+      setTimeout(() => {
+        container.style.display = 'none';
+        loader.style.display = 'flex';
+      }, 800);
+
+      setTimeout(() => {
+        window.location.href = 'id.html';
+      }, 3000);
+    } else {
+      alert(" " + (data.error || "Login failed"));
+    }
+  } catch (err) {
+    alert("⚠️ Cannot connect to server. Make sure backend is deployed.");
+    console.error(err);
+  }
+}
+
+
+document.getElementById('signup-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value.trim();
+  const confirm = document.getElementById('signup-confirm').value.trim();
+
+  if (password !== confirm) {
+    alert(" Passwords do not match!");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${BASE_URL}/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      alert(" Account created successfully!");
+      document.getElementById('signup-form').reset();
+      document.getElementById('login-toggle').click();
+    } else {
+      alert("⚠️ " + (data.error || "Signup failed"));
+    }
+  } catch (err) {
+    alert("⚠️ Cannot connect to server. Make sure backend is deployed.");
+    console.error(err);
+  }
+});
+</script>
+</body>
+</html>

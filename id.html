@@ -1,0 +1,255 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AccessPoint:BookBound</title>
+  <link rel="stylesheet" href="style2.css">
+</head>
+<body>
+    <div id="loadingScreen">
+    <h1>Welcome to AccessPoint: BookBound</h1>
+  </div>
+  
+<button id="logout-btn" class="logout">
+  Logout
+</button>
+
+
+  <div class="container">
+    <h1>AccessPoint:BookBound - Automated ID Design and Print-Ready Batching v.0.0.0</h1>
+    <p class="muted">Fill the form below. All text (except e-mail) will be capitalized automatically on submit. Cards are grouped in batches of 9 for printing (3×3). A PDF will be auto-generated when a batch reaches 9 entries. Use "Force Create PDF" to override early.</p>
+
+    <form id="regForm" onsubmit="return false;">
+      <div class="row">
+        <label>Student ID Number / LRN
+          <input id="lrn" required pattern="\d+" inputmode="numeric" placeholder="e.g. 20210001234">
+        </label>
+        <label>Last Name
+          <input id="last" required placeholder="Last name">
+        </label>
+        <label>First Name
+          <input id="first" required placeholder="First name">
+        </label>
+        <label>Middle Initial
+          <input id="mi" maxlength="2" placeholder="M">
+        </label>
+      </div>
+      <div class="row">
+        <label>Section
+          <select id="section" required>
+            <option value="ICT">ICT</option>
+            <option value="ABM">ABM</option>
+            <option value="STEM">STEM</option>
+            <option value="HUMMS">HUMMS</option>
+            <option value="A&D">A&D</option>
+            <option value="GAS">GAS</option>
+          </select>
+        </label>
+        <label>Address
+          <input id="address" required placeholder="Street, City, Province">
+        </label>
+        <label>Phone Number
+          <input id="phone" required placeholder="Digits only or formatted (09)-xxx-xxx-xxx">
+        </label>
+        <label>Birthdate
+          <input id="bdate" type="date" required>
+        </label>
+        <label>Gender
+          <select id="gender" required>
+            <option value="F">F</option>
+            <option value="M">M</option>
+          </select>
+        </label>
+        <label>E-mail Address
+          <input id="email" type="email" required placeholder="user@example.com">
+        </label>
+      </div>
+      <div class="controls">
+        <button id="addBtn">Add Registrant</button>
+        <button id="createBtn" class="secondary" type="button">Force Create PDF (override)</button>
+        <button id="clearBtn" class="secondary" type="button">Clear All</button>
+      </div>
+    </form>
+
+    <div class="list">
+      <h3>Pending Registrants (<span id="count">0</span>)</h3>
+      <table id="table">
+        <thead><tr><th>#</th><th>LRN</th><th>NAME</th><th>SECTION</th><th>PHONE</th><th>BIRTH</th><th>GENDER</th><th>EMAIL</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="card-preview" id="preview"></div>
+    </div>
+
+    <footer>This is a single-file HTML app. Save it locally and open in a browser. The app uses localStorage so data persists.</footer>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+   document.getElementById('logout-btn').addEventListener('click', () => {
+  // Optional: clear any stored data if you use localStorage/sessionStorage
+  localStorage.clear();
+  
+  // Redirect back to index.html
+  window.location.href = 'index.html';
+});
+    function toUpperKeepEmail(obj){
+      const copy = {...obj};
+      ['lrn','last','first','mi','section','address','phone','bdate','gender'].forEach(k=>{
+        if(copy[k] && typeof copy[k] === 'string') copy[k] = copy[k].toUpperCase();
+      });
+      return copy;
+    }
+    function formatPhone(input){
+      const digits = (input||'').replace(/\D/g,'');
+      if(digits.length === 11 && digits.startsWith('09')) return `(09)-${digits.slice(2,5)}-${digits.slice(5,8)}-${digits.slice(8,11)}`;
+      if(digits.length === 10 && digits.startsWith('9')) return `(09)-${digits.slice(1,4)}-${digits.slice(4,7)}-${digits.slice(7,10)}`;
+      if(digits.length >= 11) return `(09)-${digits.slice(2,5)}-${digits.slice(5,8)}-${digits.slice(8,11)}`;
+      return input;
+    }
+    function formatBirthdateISOToDisplay(dateISO){
+      if(!dateISO) return '';
+      const d = new Date(dateISO);
+      if(isNaN(d)) return dateISO;
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    }
+    const KEY = 'id_batch_registrants_v1';
+    function loadRegistrants(){ try{ return JSON.parse(localStorage.getItem(KEY))||[]; }catch(e){return [];} }
+    function saveRegistrants(arr){ localStorage.setItem(KEY, JSON.stringify(arr)); }
+    const tableBody = document.querySelector('#table tbody');
+    const countSpan = document.getElementById('count');
+    const preview = document.getElementById('preview');
+
+    function renderList(){
+      const arr = loadRegistrants();
+      countSpan.textContent = arr.length;
+      tableBody.innerHTML = '';
+      preview.innerHTML = '';
+      arr.forEach((r,i)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i+1}</td><td>${r.lrn}</td><td>${r.last}, ${r.first} ${r.mi||''}</td><td>${r.section}</td><td>${r.phone}</td><td>${r.bdate}</td><td>${r.gender}</td><td>${r.email}</td>`;
+        tableBody.appendChild(tr);
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<strong>${r.last}, ${r.first} ${r.mi||''}</strong><div class="small">LRN: ${r.lrn}</div><div class="small">${r.section} | ${r.gender}</div><div class="small">${r.phone}</div><div class="small">${r.bdate}</div><div class="small">${r.email}</div><div class="small">${r.address}</div>`;
+        preview.appendChild(card);
+      });
+    }
+
+    function clearAll(){ if(confirm('Clear all pending registrants?')){ localStorage.removeItem(KEY); renderList(); }}
+
+    function getFormData(){
+      return {
+        lrn: document.getElementById('lrn').value.trim(),
+        last: document.getElementById('last').value.trim(),
+        first: document.getElementById('first').value.trim(),
+        mi: document.getElementById('mi').value.trim(),
+        section: document.getElementById('section').value,
+        address: document.getElementById('address').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        bdate: document.getElementById('bdate').value,
+        gender: document.getElementById('gender').value,
+        email: document.getElementById('email').value.trim()
+      };
+    }
+
+    document.getElementById('addBtn').addEventListener('click', ()=>{
+      const data = getFormData();
+      if(!data.lrn || !data.last || !data.first || !data.section || !data.address || !data.phone || !data.bdate || !data.email){
+        alert('Please fill all required fields.'); return;
+      }
+      data.phone = formatPhone(data.phone);
+      data.bdate = formatBirthdateISOToDisplay(data.bdate);
+      const dataUp = toUpperKeepEmail(data);
+      const arr = loadRegistrants();
+      arr.push(dataUp);
+      saveRegistrants(arr);
+      renderList();
+      ['lrn','last','first','mi','address','phone','bdate','email'].forEach(id=>document.getElementById(id).value='');
+      if(arr.length >= 9 && arr.length % 9 === 0) createPdfFromArray(arr.slice(arr.length - 9), Math.floor(arr.length/9));
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', clearAll);
+    document.getElementById('createBtn').addEventListener('click', ()=>{
+      const arr = loadRegistrants();
+      if(arr.length === 0){ alert('No registrants to export.'); return; }
+      if(arr.length >= 9) createPdfFromArray(arr.slice(arr.length - 9), Math.floor(arr.length/9));
+      else createPdfFromArray(arr, 0, true);
+    });
+
+    async function createPdfFromArray(batch, batchNumber, isOverride){
+      const tmp = document.createElement('div');
+      tmp.style.width = '1024px';
+      tmp.style.padding = '20px';
+      tmp.style.background = '#fff';
+      tmp.style.display = 'grid';
+      tmp.style.gridTemplateColumns = 'repeat(3, 1fr)';
+      tmp.style.gap = '16px';
+      batch.forEach(r=>{
+        const c = document.createElement('div');
+        c.style.border = '1px solid #ddd';
+        c.style.borderRadius = '6px';
+        c.style.padding = '14px';
+        c.style.minHeight = '220px';
+        c.style.fontFamily = "'Bernard Condensed MT', sans-serif";
+        c.style.color = "#000000";
+        c.innerHTML = `
+          <div style="font-weight:700;font-size:14px;margin-bottom:6px">${r.last}, ${r.first} ${r.mi||''}</div>
+          <div style="font-size:12px;margin-bottom:6px">LRN: ${r.lrn}</div>
+          <div style="font-size:12px;margin-bottom:6px">Section: ${r.section}</div>
+          <div style="font-size:12px;margin-bottom:6px">Phone: ${r.phone}</div>
+          <div style="font-size:12px;margin-bottom:6px">Birthday: ${r.bdate}</div>
+          <div style="font-size:12px;margin-bottom:6px">Gender: ${r.gender}</div>
+          <div style="font-size:12px;margin-bottom:6px">E-mail: ${r.email}</div>
+          <div style="font-size:12px">Address: ${r.address}</div>
+        `;
+        tmp.appendChild(c);
+      });
+      document.body.appendChild(tmp);
+
+      try{
+        const canvas = await html2canvas(tmp, {scale:2});
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+        pdf.addFileToVFS("BernardCondensedMT.ttf", bernardFontBase64.split(",")[1]);
+        pdf.addFont("BernardCondensedMT.ttf", "BernardCondensedMT", "normal");
+        pdf.setFont("BernardCondensedMT");
+        pdf.setTextColor(0, 0, 0);
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
+        const imgWidth = canvas.width * ratio;
+        const imgHeight = canvas.height * ratio;
+        pdf.addImage(imgData, 'PNG', (pdfWidth - imgWidth)/2, 20, imgWidth, imgHeight);
+
+        const timestamp = new Date().toISOString().replace(/[:\.]/g,'-');
+        const batchLabel = (batchNumber && batchNumber>0) ? `batch-${batchNumber}` : 'partial';
+        const filename = `ID_Cards_${batchLabel}_${timestamp}.pdf`;
+        pdf.save(filename);
+
+        if(confirm('PDF created: "' + filename + '". Remove these registrants from pending list?')){
+          const all = loadRegistrants();
+          if(all.length >= batch.length){
+            all.splice(all.length - batch.length, batch.length);
+            saveRegistrants(all);
+            renderList();
+          }
+        }
+        document.getElementById("logout-btn").addEventListener("click", () => {
+  localStorage.removeItem("loggedInUser"); // clear login
+  window.location.href = "index.html";       // back to login
+});
+
+      }catch(e){ alert('PDF generation failed: '+e.message); }
+      finally{ tmp.remove(); }
+    }
+    renderList();
+  </script>
+</body>
+</html>
+

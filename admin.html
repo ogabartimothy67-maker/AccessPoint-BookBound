@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Admin Panel</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-10">
+  <h1 class="text-3xl font-bold mb-6">TRY PA LANG NAMIN TO</h1>
+  <table class="w-full bg-white shadow rounded-lg overflow-hidden">
+    <thead class="bg-gray-200">
+      <tr>
+        <th class="p-3 text-left">ID</th>
+        <th class="p-3 text-left">Name</th>
+        <th class="p-3 text-left">Email</th>
+        <th class="p-3 text-left">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="userTable"></tbody>
+  </table>
+
+<script>
+const BASE_URL = "https://bookbound-backend2.onrender.com";
+
+
+async function loadUsers() {
+  try {
+    const res = await fetch(`${BASE_URL}/users`);
+    const users = await res.json();
+    const table = document.getElementById("userTable");
+    table.innerHTML = "";
+
+    users.forEach(u => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="p-3 border">${u.id}</td>
+        <td class="p-3 border">${u.name}</td>
+        <td class="p-3 border">${u.email}</td>
+        <td class="p-3 border">
+          <button onclick="resetPass(${u.id})" class="bg-blue-500 text-white px-3 py-1 rounded">Reset Password</button>
+          <button onclick="deleteUser(${u.id})" class="bg-red-500 text-white px-3 py-1 rounded ml-2">Delete</button>
+        </td>
+      `;
+      table.appendChild(tr);
+    });
+  } catch (err) {
+    alert("⚠️ Cannot connect to server. Make sure backend is deployed.");
+    console.error(err);
+  }
+}
+
+
+async function deleteUser(id) {
+  if (!confirm("Delete this user?")) return;
+  try {
+    const res = await fetch(`${BASE_URL}/users/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message);
+      loadUsers();
+    } else {
+      alert("⚠️ " + (data.error || "Failed to delete user"));
+    }
+  } catch (err) {
+    alert("⚠️ Cannot connect to server.");
+    console.error(err);
+  }
+}
+
+
+async function resetPass(id) {
+  try {
+    const res = await fetch(`${BASE_URL}/users/${id}/reset`, { method: "PUT" });
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message);
+      loadUsers();
+    } else {
+      alert("⚠️ " + (data.error || "Failed to reset password"));
+    }
+  } catch (err) {
+    alert("⚠️ Cannot connect to server.");
+    console.error(err);
+  }
+}
+
+loadUsers();
+</script>
+</body>
+</html>
